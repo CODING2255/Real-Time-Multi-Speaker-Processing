@@ -1,12 +1,10 @@
 import streamlit as st
 import numpy as np
 import soundfile as sf
-import tempfile
 import os
 import matplotlib.pyplot as plt
 import torch
 import torchaudio
-import threading
 from pydub import AudioSegment
 import ffmpeg
 
@@ -16,7 +14,7 @@ from src.model.summarization import Summarizer
 from src.utils.audio_processor import AudioProcessor as MyAudioProcessor
 from src.utils.formatter import TimeFormatter
 
-# Fix RuntimeError: No Running Event Loop
+# 🔹 Fix RuntimeError: No Running Event Loop
 import asyncio
 try:
     asyncio.get_running_loop()
@@ -26,8 +24,8 @@ except RuntimeError:
 st.set_page_config(page_title="Multi-Speaker Audio Analyzer", layout="wide")
 st.title("Multi-Speaker Audio Analyzer")
 
-st.write("Upload or process audio for speaker diarization, transcription, and summarization.")
-input_method = st.radio("Choose input method:", ["Upload File"], horizontal=True)
+st.write("Upload an audio file for speaker diarization, transcription, and summarization.")
+uploaded_file = st.file_uploader("Choose a file", type=["mp3", "wav"])
 
 @st.cache_resource
 def load_models():
@@ -111,13 +109,9 @@ def display_results(results):
         st.write("Summary:")
         st.write(results.get("summary", "No summary available."))
 
-# 📂 UPLOAD FILE SECTION
-if input_method == "Upload File":
-    uploaded_file = st.file_uploader("Choose a file", type=["mp3", "wav"])
-
-    if uploaded_file:
-        st.audio(uploaded_file, format='audio/wav')
-        if st.button("Analyze Uploaded Audio"):
-            results = process_audio(uploaded_file)
-            if results:
-                display_results(results)
+if uploaded_file:
+    st.audio(uploaded_file, format='audio/wav')
+    if st.button("Analyze Uploaded Audio"):
+        results = process_audio(uploaded_file)
+        if results:
+            display_results(results)
