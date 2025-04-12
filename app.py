@@ -1,27 +1,14 @@
-import asyncio
-
-try:
-    asyncio.get_running_loop()
-except RuntimeError:
-    asyncio.set_event_loop(asyncio.new_event_loop())
-
 import streamlit as st
-
-hf_token = st.secrets.get("hf_token", None)
-if hf_token:
-    st.write("✅ Hugging Face token loaded successfully!")
-else:
-    st.error("⚠️ Hugging Face token missing. Please add it to secrets.toml or Streamlit Cloud settings.")
 import numpy as np
 import soundfile as sf
 import tempfile
 import os
 import matplotlib.pyplot as plt
-import sounddevice as sd
-import threading
 import torch
 import torchaudio
-import lightning_fabric
+import threading
+from pydub import AudioSegment
+import ffmpeg
 
 from src.model.diarization import SpeakerDiarizer
 from src.model.transcription import Transcriber
@@ -30,6 +17,7 @@ from src.utils.audio_processor import AudioProcessor as MyAudioProcessor
 from src.utils.formatter import TimeFormatter
 
 # Fix RuntimeError: No Running Event Loop
+import asyncio
 try:
     asyncio.get_running_loop()
 except RuntimeError:
@@ -38,13 +26,13 @@ except RuntimeError:
 st.set_page_config(page_title="Multi-Speaker Audio Analyzer", layout="wide")
 st.title("Multi-Speaker Audio Analyzer")
 
-st.write("Upload or record audio for speaker diarization, transcription, and summarization.")
-input_method = st.radio("Choose input method:", ["Upload File", "Record Live Audio"], horizontal=True)
+st.write("Upload or process audio for speaker diarization, transcription, and summarization.")
+input_method = st.radio("Choose input method:", ["Upload File"], horizontal=True)
 
 @st.cache_resource
 def load_models():
     try:
-        diarizer = SpeakerDiarizer(st.secrets["hf_token"])
+        diarizer = SpeakerDiarizer(st.secrets.get("hf_token", ""))
         transcriber = Transcriber()
         summarizer = Summarizer()
 
@@ -60,10 +48,14 @@ def load_models():
         st.error(f"Error loading models: {str(e)}")
         return None, None, None
 
-def process_audio(audio_input):
+def process_audio(audio_file):
     try:
+        # Convert audio file using pydub
+        audio = AudioSegment.from_file(audio_file)
+        audio.export("processed_audio.wav", format="wav")
+
         audio_processor = MyAudioProcessor()
-        standardized_path = audio_processor.standardize_audio(audio_input)
+        standardized_path = audio_processor.standardize_audio("processed_audio.wav")
 
         diarizer, transcriber, summarizer = load_models()
         if not all([diarizer, transcriber, summarizer]):
@@ -119,60 +111,8 @@ def display_results(results):
         st.write("Summary:")
         st.write(results.get("summary", "No summary available."))
 
-# 🎙 RECORDING LOGIC
-stop_recording = threading.Event()
-
-def record_audio(duration):
-    samplerate = 44100
-    recording = sd.rec(int(samplerate * duration), samplerate=samplerate, channels=1, dtype='int16')
-    
-    # Wait while recording OR until stopped manually
-    for _ in range(int(duration)):
-        if stop_recording.is_set():
-            break
-        sd.sleep(1000)
-
-    sd.stop()
-
-    if not stop_recording.is_set():
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
-            sf.write(tmpfile.name, recording, samplerate)
-            st.session_state.recording_path = tmpfile.name
-            st.audio(tmpfile.name, format="audio/wav")
-
-            fig, ax = plt.subplots()
-            ax.plot(recording)
-            ax.set_title("Recorded Audio Waveform")
-            st.pyplot(fig)
-
-# 🚀 RECORDING SECTION
-if input_method == "Record Live Audio":
-    st.info("🎙️ Click 'Start Recording' to record audio. Then click 'Stop Recording' or 'Analyze Recorded Audio'.")
-
-    duration = st.slider("Select recording duration (seconds):", min_value=5, max_value=3600, value=10)
-
-    if "recording_path" not in st.session_state:
-        st.session_state.recording_path = None
-
-    if st.button("Start Recording"):
-        stop_recording.clear()
-        thread = threading.Thread(target=record_audio, args=(duration,))
-        thread.start()
-        st.write(f"🎙️ Recording for up to {duration} seconds... Speak now!")
-
-    if st.button("Stop Recording"):
-        stop_recording.set()
-        st.success("✅ Recording stopped manually.")
-
-    if st.session_state.recording_path and st.button("Analyze Recorded Audio"):
-        results = process_audio(st.session_state.recording_path)
-        if results:
-            display_results(results)
-            os.unlink(st.session_state.recording_path)
-            st.session_state.recording_path = None
-
 # 📂 UPLOAD FILE SECTION
-elif input_method == "Upload File":
+if input_method == "Upload File":
     uploaded_file = st.file_uploader("Choose a file", type=["mp3", "wav"])
 
     if uploaded_file:
