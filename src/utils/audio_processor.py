@@ -1,27 +1,43 @@
-import os
+"""
+Audio Processing Utilities
+Handles audio file preprocessing and standardization.
+"""
+
+from pydub import AudioSegment
+import io
 import tempfile
-import soundfile as sf
-import torchaudio
+import os
 
 class AudioProcessor:
-    def standardize_audio(self, audio_input):
+    @staticmethod
+    def standardize_audio(audio_file):
+        """Standardize audio file to required format.
+        
+        Args:
+            audio_file: Uploaded audio file
+            
+        Returns:
+            str: Path to processed audio file
         """
-        Accepts either a file path (str) or a file-like object (BytesIO),
-        and outputs a standardized wav file path.
-        """
-        if hasattr(audio_input, "getvalue"):
-            # Handle BytesIO or uploaded file
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_in:
-                tmp_in.write(audio_input.getvalue())
-                tmp_input_path = tmp_in.name
-        elif isinstance(audio_input, str) and os.path.isfile(audio_input):
-            tmp_input_path = audio_input
-        else:
-            raise ValueError("Unsupported audio input type")
-
-        # Convert and standardize using torchaudio
-        waveform, sr = torchaudio.load(tmp_input_path)
-        standardized_path = tmp_input_path.replace(".wav", "_standardized.wav")
-        torchaudio.save(standardized_path, waveform, sr)
-
-        return standardized_path
+        try:
+            audio_bytes = io.BytesIO(audio_file.getvalue())
+            
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+                if audio_file.name.lower().endswith('.mp3'):
+                    audio = AudioSegment.from_mp3(audio_bytes)
+                else:
+                    audio = AudioSegment.from_wav(audio_bytes)
+                
+                audio = audio.set_frame_rate(16000)
+                audio = audio.set_channels(1)
+                audio = audio.set_sample_width(2)
+                
+                audio.export(
+                    tmp.name,
+                    format="wav",
+                    parameters=["-ac", "1", "-ar", "16000"]
+                )
+                return tmp.name
+                
+        except Exception as e:
+            raise Exception(f"Error processing audio: {str(e)}")

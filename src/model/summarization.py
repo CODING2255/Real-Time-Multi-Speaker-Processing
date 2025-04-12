@@ -34,15 +34,9 @@ class Summarizer:
             min_length (int): Minimum length of summary
             
         Returns:
-            list: List containing summary dictionary
+            str: Summarized text
         """
         try:
-            if not isinstance(text, str):
-                raise ValueError("Input must be a string")
-            
-            if not text.strip():
-                raise ValueError("Input text is empty")
-                
             summary = self.model(text, max_length=max_length, min_length=min_length)
             return summary
         except Exception as e:
