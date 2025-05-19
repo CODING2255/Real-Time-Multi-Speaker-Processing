@@ -92,9 +92,13 @@ Doesn't actually analyze the audio for speaker changes.
 Real speaker diarization would use models like pyannote.audio.
 
 🔄 How These Stages Connect
+
 Audio → passed to Whisper → you get transcript
+
 Transcript → passed to Hugging Face model → you get summary
+
 Transcript → passed to diarizer → you get "Speaker X" segments
+
 All results are then rendered in the Streamlit UI.
 
 Business Value & Use Cases
