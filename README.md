@@ -33,7 +33,7 @@ Backend Pipeline: Step-by-Step
 High accuracy, even with background noise or different accents.
 Runs offline, which means zero cloud dependency = full privacy.
 
-3. 📌 Summarization → Using Hugging Face Transformer
+2. 📌 Summarization → Using Hugging Face Transformer
    🔧 What it does:
    Takes the full transcribed text and condenses it into a short summary that covers the main points.
    
